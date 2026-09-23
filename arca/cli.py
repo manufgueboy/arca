@@ -1,6 +1,7 @@
 """Línea de comandos de Arca.
 
-  arca                         chat interactivo con el agente
+  arca web                     abre Arca en el navegador (sin terminal)
+  arca                         chat interactivo en la terminal
   arca "haz tal cosa"          una sola tarea y sale
   arca modelos [--gratis]      lista modelos del proveedor actual
   arca usar <proveedor> [modelo]
@@ -8,7 +9,9 @@
   arca proveedores             lista proveedores disponibles
   arca skills                  lista skills
   arca skill-nueva <nombre>    crea una skill en ~/.arca/skills
+  arca descargar [modelo]      descarga el modelo local recomendado para tu Mac
   arca doctor                  revisa que todo esté bien
+  arca actualizar              baja la última versión
 Opciones: -p/--proveedor, -m/--modelo, -y/--auto (no pedir confirmación)
 """
 from __future__ import annotations
@@ -18,7 +21,7 @@ import json
 import sys
 import urllib.request
 
-from . import __version__, config, providers, skills, tools
+from . import __version__, config, equipo, providers, skills, tools
 from .agent import Agente
 
 C = {"gris": "\033[90m", "cian": "\033[36m", "verde": "\033[32m", "amarillo": "\033[33m",
@@ -44,7 +47,8 @@ class Sesion:
         self.cfg = cfg
         self.auto = auto or cfg.get("auto_aprobar", False)
         self.prov = providers.crear(cfg, proveedor, modelo)
-        self.agente = Agente(self.prov, cfg.get("max_pasos", 30), self.confirmar, self.mostrar)
+        self.agente = Agente(self.prov, cfg.get("max_pasos", 30), self.confirmar, self.mostrar,
+                             modo=cfg.get("modo", "auto"))
 
     def mostrar(self, nombre: str, args: dict) -> None:
         print(color(f"  ⚙ {nombre}", "cian") + color(f"({_resumen_args(args)})", "gris"))
@@ -52,8 +56,10 @@ class Sesion:
     def confirmar(self, nombre: str, args: dict) -> bool:
         if self.auto:
             return True
-        if nombre in ("terminal", "applescript", "chrome_js", "escribir_archivo"):
+        if nombre in ("terminal", "applescript", "chrome_js", "escribir_archivo", "organizar_carpeta"):
             detalle = args.get("comando") or args.get("script") or args.get("codigo") or args.get("ruta")
+            if nombre == "organizar_carpeta":
+                detalle = tools.organizar_carpeta(args.get("ruta", "."), "no")
             print(color("    ┌\n", "gris") + "\n".join(color("    │ ", "gris") + l for l in str(detalle).splitlines()[:25]))
         try:
             r = input(color("    ¿Permitir? [s]í / [n]o / [t]odo esta sesión: ", "amarillo")).strip().lower()
@@ -83,7 +89,8 @@ class Sesion:
             import readline  # noqa: F401  (historial con flechas)
         except ImportError:
             pass
-        print(color(f"\n  ⛵ Arca {__version__}", "neg") + color(f"  ·  {self.etiqueta()}  ·  "
+        modo = " · modo compacto" if self.agente.compacto else ""
+        print(color(f"\n  ⛵ Arca {__version__}", "neg") + color(f"  ·  {self.etiqueta()}{modo}  ·  "
               f"{len(skills.cargar())} skills  ·  /ayuda", "gris"))
         print(color("  Pídeme lo que sea: archivos, apps de tu Mac, Chrome, terminal, web.\n", "gris"))
         while True:
@@ -111,12 +118,14 @@ class Sesion:
         elif cmd == "modelo":
             if args:
                 self.prov.modelo = args[0]
+                self.agente.configurar_modelo()
             print(color(f"  Modelo: {self.etiqueta()}", "gris"))
         elif cmd == "proveedor" and args:
             try:
                 self.prov = providers.crear(self.cfg, args[0], args[1] if len(args) > 1 else None)
                 self.agente.prov = self.prov
                 self.agente.modo_texto = False
+                self.agente.configurar_modelo()
                 print(color(f"  Ahora: {self.etiqueta()}", "gris"))
             except providers.ProveedorError as e:
                 print(color(f"  {e}", "rojo"))
@@ -152,6 +161,59 @@ def imprimir_skills() -> None:
     for s in skills.cargar().values():
         print(f"  {color(s.nombre, 'cian')}  {s.descripcion}")
         print(color(f"    {s.path}", "gris"))
+
+
+def barra(texto: str, pct: float) -> None:
+    if pct < 0:
+        print(f"\r  {texto:<40}", end="", flush=True)
+        return
+    n = int(pct * 30)
+    print(f"\r  {texto[:32]:<32} [{'█' * n}{'·' * (30 - n)}] {pct * 100:5.1f}%", end="", flush=True)
+
+
+def descargar(cfg: dict, modelo: str | None) -> None:
+    ram, libre = equipo.ram_gb(), equipo.disco_libre_gb()
+    rec = equipo.recomendar(ram, libre)
+    modelo = modelo or rec["id"]
+    print(f"  Tu Mac: {ram} GB de RAM, {libre} GB libres → {color(modelo, 'cian')}")
+    if not equipo.ollama_corriendo():
+        print("  Preparando Ollama…")
+        if not equipo.instalar_ollama(barra):
+            print(color("\n  No pude iniciar Ollama. Ábrelo desde Aplicaciones y reintenta.", "rojo"))
+            return
+        print()
+    try:
+        equipo.descargar_modelo(modelo, barra)
+    except RuntimeError as e:
+        print(color(f"\n  Error: {e}", "rojo"))
+        return
+    print()
+    cfg["proveedor"], cfg["modelo"] = "ollama", modelo
+    config.guardar(cfg)
+    print(color(f"  ✓ Listo. Arca usará {modelo}. Escribe: arca", "verde"))
+
+
+def sin_modelo(cfg: dict) -> bool:
+    """Primer uso: no hay modelo local. Ofrece descargar el recomendado."""
+    if cfg["proveedor"] != "ollama":
+        return False
+    if equipo.ollama_instalado() and not equipo.ollama_corriendo():
+        print(color("  Encendiendo Ollama…", "gris"))
+        equipo.iniciar_ollama()
+    if cfg.get("modelo") or equipo.modelos_locales():
+        return False
+    rec = equipo.recomendar()
+    print(color("\n  👋 Bienvenido a Arca. Aún no tienes un modelo de IA.", "neg"))
+    print(f"  Recomendado para tu Mac: {color(rec['nombre'], 'cian')} ({rec['id']}, {rec['gb']} GB) — {rec['desc']}")
+    print(color("  (Si prefieres botones en vez de terminal, escribe: arca web)", "gris"))
+    try:
+        r = input("  ¿Lo descargo ahora? [S/n] ").strip().lower()
+    except EOFError:
+        r = "n"
+    if r in ("", "s", "si", "sí", "y"):
+        descargar(cfg, rec["id"])
+        return False
+    return True
 
 
 def doctor(cfg: dict) -> None:
@@ -206,8 +268,13 @@ def main(argv: list[str] | None = None) -> None:
     try:
         if cmd == "proveedores":
             for n, d in config.proveedores(cfg).items():
-                tiene = "✓" if (not d.get("env") or config.api_key(cfg, n, d)) else " "
-                print(f"  {tiene} {color(n, 'cian'):<22} {d.get('descripcion', d.get('base_url', ''))}")
+                if not d.get("env"):
+                    estado = color("local ", "verde")
+                elif config.api_key(cfg, n, d):
+                    estado = color("key ✓ ", "verde")
+                else:
+                    estado = color("sin key", "gris")
+                print(f"  {estado} {color(n, 'cian'):<22} {d.get('descripcion', d.get('base_url', ''))}")
             print(color(f"\n  Actual: {cfg['proveedor']}  ·  cambiar: arca usar <proveedor> [modelo]", "gris"))
         elif cmd == "login":
             nombre = resto[1] if len(resto) > 1 else input("Proveedor: ").strip()
@@ -226,17 +293,33 @@ def main(argv: list[str] | None = None) -> None:
             config.guardar(cfg)
             print(color(f"  Listo: {p.nombre}/{p.modelo}", "verde"))
         elif cmd == "modelos":
-            imprimir_modelos(providers.crear(cfg, prov_arg, modelo_arg or "-"), "--gratis" in resto or "gratis" in resto)
+            prov = providers.crear(cfg, prov_arg, modelo_arg or "-")
+            if not modelo_arg:
+                nombre = prov_arg or cfg["proveedor"]
+                prov.modelo = (cfg.get("modelo") if nombre == cfg["proveedor"] else "") or "(automático)"
+            imprimir_modelos(prov, "--gratis" in resto or "gratis" in resto)
         elif cmd == "skills":
             imprimir_skills()
         elif cmd == "skill-nueva":
             print(color(f"  Creada: {skills.nueva(resto[1])}", "verde"))
         elif cmd == "doctor":
             doctor(cfg)
+        elif cmd == "web":
+            from .web import servir
+            servir(abrir="--no-abrir" not in resto)
+        elif cmd == "descargar":
+            descargar(cfg, resto[1] if len(resto) > 1 else None)
+        elif cmd == "actualizar":
+            import subprocess
+            subprocess.run("curl -fsSL https://raw.githubusercontent.com/manufgueboy/arca/main/install.sh | bash",
+                           shell=True)
         elif cmd == "config":
             print(json.dumps({**cfg, "api_keys": {k: "••••" for k in cfg.get("api_keys", {})}}, indent=2, ensure_ascii=False))
             print(color(f"  {config.CONFIG_PATH}", "gris"))
         else:
+            if not prov_arg and not modelo_arg and sin_modelo(cfg):
+                return
+            cfg = config.cargar()
             s = Sesion(cfg, prov_arg, modelo_arg, auto)
             if resto:
                 s.tarea(" ".join(resto))

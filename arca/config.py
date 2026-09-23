@@ -13,8 +13,8 @@ CONFIG_PATH = ARCA_HOME / "config.json"
 PRESETS: dict[str, dict] = {
     # --- Locales (gratis, privados, sin internet) ---
     "ollama": {
-        "tipo": "openai",
-        "base_url": "http://localhost:11434/v1",
+        "tipo": "ollama",
+        "base_url": "http://localhost:11434",
         "api_key": "ollama",
         "descripcion": "Modelos locales con Ollama (gratis, privado, offline)",
     },
@@ -63,6 +63,7 @@ DEFAULTS = {
     "modelo": "",            # vacío = Arca elige uno disponible
     "auto_aprobar": False,   # True = no pide confirmación antes de acciones
     "max_pasos": 30,
+    "modo": "auto",          # auto | compacto | completo  (compacto = optimizado para modelos chicos)
     "proveedores": {},       # overrides o proveedores propios, mismo formato que PRESETS
     "api_keys": {},          # llaves guardadas con `arca login <proveedor>`
 }

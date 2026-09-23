@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arca</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛵</text></svg>">
+<style>
+:root{
+  --bg:#0e1116; --panel:#151a21; --panel2:#1b212a; --line:#262e39; --text:#e6e9ee; --dim:#8b95a3;
+  --accent:#5eb3ff; --accent2:#2f7fd1; --ok:#3ecf8e; --warn:#f5b84b; --bad:#ff6b6b; --user:#1f3b5a;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:9px 14px;background:var(--panel2);color:var(--text)}
+button:hover{filter:brightness(1.15)}
+button:disabled{opacity:.45;cursor:default;filter:none}
+button.pri{background:var(--accent2);color:#fff;font-weight:600}
+button.ok{background:#1f6b4b;color:#fff}
+button.no{background:#4a2a2e;color:#fff}
+a{color:var(--accent)}
+.app{display:flex;flex-direction:column;height:100%;max-width:900px;margin:0 auto}
+header{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+header .logo{font-weight:700;font-size:17px;letter-spacing:.2px}
+header .sp{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:999px;padding:5px 11px;font-size:13px;color:var(--dim);cursor:pointer}
+.chip b{color:var(--text);font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block}
+.dot.nube{background:var(--warn)}
+#chat{flex:1;overflow-y:auto;padding:22px 18px 10px}
+.msg{margin:0 0 16px;display:flex}
+.msg.user{justify-content:flex-end}
+.burbuja{max-width:82%;padding:11px 15px;border-radius:var(--r);background:var(--panel);border:1px solid var(--line);
+  overflow-wrap:anywhere}
+.user .burbuja{background:var(--user);border-color:#29527c}
+.burbuja p{margin:.35em 0}.burbuja p:first-child{margin-top:0}.burbuja p:last-child{margin-bottom:0}
+.burbuja ul,.burbuja ol{margin:.3em 0;padding-left:1.3em}
+.burbuja code{background:#0b0e12;padding:1px 5px;border-radius:5px;font:13px ui-monospace,Menlo,monospace}
+.burbuja pre{background:#0b0e12;padding:10px;border-radius:9px;overflow-x:auto;font:12.5px/1.45 ui-monospace,Menlo,monospace}
+.burbuja pre code{background:none;padding:0}
+.burbuja table{border-collapse:collapse;margin:.4em 0;font-size:13.5px}
+.burbuja td,.burbuja th{border:1px solid var(--line);padding:4px 8px;text-align:left}
+.burbuja h1,.burbuja h2,.burbuja h3{font-size:15.5px;margin:.6em 0 .3em}
+.meta{font-size:12px;color:var(--dim);margin-top:6px}
+.pasos{margin:-4px 0 14px;display:flex;flex-direction:column;gap:4px}
+.paso{font-size:13px;color:var(--dim);display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+.paso .ico{width:18px;text-align:center}
+.paso.hecho .ico{color:var(--ok)}
+.det{display:none;margin:4px 0 4px 25px;white-space:pre-wrap;font:12px ui-monospace,Menlo,monospace;
+  color:#aab4c0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px;max-height:220px;overflow:auto}
+.paso.abierto + .det{display:block}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);
+  border-radius:50%;animation:g .8s linear infinite}
+@keyframes g{to{transform:rotate(360deg)}}
+.confirma{background:#1d1a12;border:1px solid #5a4a1f;border-radius:var(--r);padding:13px 15px;margin:0 0 16px}
+.confirma h4{margin:0 0 6px;font-size:14px;color:var(--warn)}
+.confirma pre{background:#0b0e12;border-radius:8px;padding:9px;font:12.5px ui-monospace,Menlo,monospace;
+  white-space:pre-wrap;max-height:240px;overflow:auto;margin:6px 0 10px}
+.confirma .btns{display:flex;gap:8px;flex-wrap:wrap}
+.aviso{background:#151d2a;border:1px solid #2a3d5a;border-radius:var(--r);padding:12px 15px;margin:0 0 16px;font-size:14px}
+.err{color:var(--bad)}
+.vacio{text-align:center;color:var(--dim);margin-top:9vh}
+.vacio h2{color:var(--text);font-size:24px;margin:.2em 0}
+.ejemplos{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:22px}
+.ejemplos button{background:var(--panel);border:1px solid var(--line);font-size:14px;border-radius:999px;padding:8px 14px}
+footer{padding:12px 18px 16px;border-top:1px solid var(--line)}
+.caja{display:flex;gap:8px;align-items:flex-end;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:8px}
+textarea{flex:1;resize:none;background:transparent;border:0;outline:0;color:var(--text);font:inherit;
+  max-height:180px;min-height:24px;padding:6px 8px}
+.pie{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:7px;padding:0 4px}
+.pie label{cursor:pointer}
+/* configuración */
+.velo{position:fixed;inset:0;background:rgba(5,7,10,.72);display:none;align-items:flex-start;justify-content:center;
+  overflow-y:auto;padding:40px 14px;z-index:9}
+.velo.on{display:flex}
+.hoja{width:100%;max-width:680px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px}
+.hoja h2{margin:0 0 4px;font-size:21px}
+.hoja .sub{color:var(--dim);margin:0 0 18px}
+.hoja h3{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:22px 0 10px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px;display:flex;flex-direction:column;gap:6px}
+.card.rec{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2) inset}
+.card .t{font-weight:650}
+.card .d{font-size:13px;color:var(--dim);flex:1}
+.card .tag{font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.card.no-cabe{opacity:.5}
+.barra{height:8px;background:#0b0e12;border-radius:99px;overflow:hidden;margin:8px 0 4px}
+.barra i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .4s}
+.fila{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input[type=password],input[type=text],select{background:#0b0e12;border:1px solid var(--line);color:var(--text);
+  border-radius:9px;padding:9px 11px;font:inherit;flex:1;min-width:180px}
+details{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 13px;margin-top:8px}
+summary{cursor:pointer;font-weight:600}
+.cerrar{float:right;background:none;color:var(--dim);font-size:20px;padding:0 4px}
+.pequeño{font-size:13px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="logo">⛵ Arca</span>
+    <span class="sp"></span>
+    <span class="chip" id="chipModelo" title="Cambiar modelo"><span class="dot" id="dot"></span><b id="nomModelo">…</b></span>
+    <button id="btnNuevo" title="Nueva conversación">Nueva</button>
+  </header>
+  <div id="chat"></div>
+  <footer>
+    <div class="caja">
+      <textarea id="entrada" rows="1" placeholder="Pídele algo a Arca…"></textarea>
+      <button class="pri" id="btnEnviar">Enviar</button>
+      <button class="no" id="btnDetener" style="display:none">Detener</button>
+    </div>
+    <div class="pie">
+      <label><input type="checkbox" id="auto"> No pedir permiso (esta sesión)</label>
+      <span id="pieInfo"></span>
+    </div>
+  </footer>
+</div>
+
+<div class="velo" id="velo"><div class="hoja" id="hoja"></div></div>
+
+<script>
+const TOKEN = "__TOKEN__";
+const $ = s => document.querySelector(s);
+let desde = 0, estado = null, ocupado = false, pasosActuales = null, sondeo = null, enVuelo = false, descargando = false;
+
+async function api(ruta, datos) {
+  const op = datos === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json", "X-Arca-Token": TOKEN},
+    body: JSON.stringify(datos)};
+  const r = await fetch(ruta, op);
+  return r.json();
+}
+
+// ───────── markdown mínimo y seguro ─────────
+function esc(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function inline(s){
+  return s.replace(/`([^`]+)`/g,"<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>")
+    .replace(/(^|[^*])\*([^*\n]+)\*/g,"$1<i>$2</i>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g,'$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+}
+function md(texto){
+  const partes = esc(texto || "").split(/```[a-zA-Z]*\n?/);
+  let html = "";
+  partes.forEach((p,i)=>{
+    if(i%2){ html += "<pre><code>"+p.replace(/\n$/,"")+"</code></pre>"; return; }
+    const lineas = p.split("\n"); let lista=null, tabla=[];
+    const cerrar=()=>{ if(lista){html+="</"+lista+">";lista=null}
+      if(tabla.length){ html+="<table>"+tabla.filter(f=>!/^\|?\s*:?-{2,}/.test(f)).map((f,j)=>"<tr>"+
+        f.replace(/^\||\|$/g,"").split("|").map(c=>(j?"<td>":"<th>")+inline(c.trim())+(j?"</td>":"</th>")).join("")+"</tr>").join("")+"</table>"; tabla=[] } };
+    for(const l of lineas){
+      if(/^\s*\|.*\|\s*$/.test(l)){ if(lista){html+="</"+lista+">";lista=null} tabla.push(l.trim()); continue }
+      if(tabla.length) cerrar();
+      let m;
+      if((m=l.match(/^\s*[-*•]\s+(.*)/))){ if(lista!=="ul"){cerrar();html+="<ul>";lista="ul"} html+="<li>"+inline(m[1])+"</li>"; continue }
+      if((m=l.match(/^\s*\d+[.)]\s+(.*)/))){ if(lista!=="ol"){cerrar();html+="<ol>";lista="ol"} html+="<li>"+inline(m[1])+"</li>"; continue }
+      cerrar();
+      if((m=l.match(/^#{1,4}\s+(.*)/))){ html+="<h3>"+inline(m[1])+"</h3>"; continue }
+      if(l.trim()) html+="<p>"+inline(l)+"</p>";
+    }
+    cerrar();
+  });
+  return html;
+}
+
+// ───────── chat ─────────
+const EJEMPLOS = ["Recuérdame mañana a las 9 pagar la luz", "Organiza mi carpeta de Descargas",
+  "¿Va a llover hoy?", "¿Cuánto espacio libre tengo?", "Resúmeme la página que tengo abierta en Chrome",
+  "Escribe un correo pidiendo el día libre el viernes", "¿Quién fue Frida Kahlo?"];
+
+function vacio(){
+  $("#chat").innerHTML = `<div class="vacio"><div style="font-size:42px">⛵</div><h2>¿Qué hago por ti?</h2>
+    <div>Arca usa tu Mac por ti: apps, archivos, Chrome e internet.</div>
+    <div class="ejemplos">${EJEMPLOS.map(e=>`<button>${esc(e)}</button>`).join("")}</div></div>`;
+  document.querySelectorAll(".ejemplos button").forEach(b=>b.onclick=()=>{ $("#entrada").value=b.textContent; enviar() });
+}
+function agregar(html){
+  const c = $("#chat"); if(c.querySelector(".vacio")) c.innerHTML="";
+  const d = document.createElement("div"); d.innerHTML = html; const el = d.firstElementChild; c.appendChild(el);
+  c.scrollTop = c.scrollHeight; return el;
+}
+function pasos(){ if(!pasosActuales) pasosActuales = agregar(`<div class="pasos"></div>`); return pasosActuales }
+function argsTexto(a){ return Object.entries(a||{}).map(([k,v])=>`${k}: ${v}`).join("\n") }
+
+function pintar(ev){
+  switch(ev.tipo){
+    case "usuario": pasosActuales=null; agregar(`<div class="msg user"><div class="burbuja">${md(ev.texto)}</div></div>`); break;
+    case "herramienta": {
+      const p = pasos(); const d = document.createElement("div");
+      d.innerHTML = `<div class="paso" data-n="${esc(ev.nombre)}"><span class="ico"><span class="spin"></span></span><span class="lbl">${esc(ev.texto)}…</span></div><div class="det">${esc(argsTexto(ev.args))}</div>`;
+      d.querySelector(".paso").onclick = e => e.currentTarget.classList.toggle("abierto");
+      p.appendChild(d); break; }
+    case "resultado": {
+      const ps = [...(pasosActuales||document).querySelectorAll(".paso:not(.hecho)")].filter(x=>x.dataset.n===ev.nombre);
+      const x = ps[ps.length-1]; if(x){ x.classList.add("hecho"); const l = x.querySelector(".lbl"); l.textContent = l.textContent.replace(/…$/,""); x.querySelector(".ico").textContent = /^\[(error|cancelado)/.test(ev.salida)?"✕":"✓";
+        x.nextElementSibling.textContent += "\n\n→ " + ev.salida; }
+      if(/JavaScript de eventos de Apple/.test(ev.salida)) agregar(`<div class="aviso">🔧 <b>Falta un permiso en Chrome (solo una vez):</b> en la barra de menú de Chrome ve a <b>Ver → Opciones para desarrolladores → Permitir JavaScript de eventos de Apple</b>. Luego vuelve a pedírmelo.</div>`);
+      break; }
+    case "confirmar": {
+      const el = agregar(`<div class="confirma" id="conf${ev.id}"><h4>✋ Arca quiere: ${esc(ev.texto)}</h4>
+        <pre>${esc(ev.detalle)}</pre><div class="btns"><button class="ok" data-r="si">Permitir</button>
+        <button class="no" data-r="no">No</button><button data-r="todo">Permitir todo en esta sesión</button></div></div>`);
+      el.querySelectorAll("button").forEach(b=>b.onclick=async()=>{ el.querySelectorAll("button").forEach(x=>x.disabled=true);
+        if(b.dataset.r==="todo") $("#auto").checked=true; await api("/api/confirmar",{respuesta:b.dataset.r}) });
+      break; }
+    case "confirmado": { const el = $("#conf"+ev.ref); if(el){ el.querySelector(".btns").innerHTML =
+        ev.si?'<span style="color:var(--ok)">✓ Permitido</span>':'<span class="err">✕ No permitido</span>' } break; }
+    case "respuesta": pasosActuales=null; agregar(`<div class="msg"><div class="burbuja">${md(ev.texto)}<div class="meta">${ev.seg}s</div></div></div>`); break;
+    case "error": pasosActuales=null; agregar(`<div class="msg"><div class="burbuja"><span class="err">⚠️ ${esc(ev.texto)}</span></div></div>`); break;
+    case "nuevo": pasosActuales=null; vacio(); break;
+  }
+}
+
+async function tick(){
+  if(enVuelo) return;             // un solo ciclo de actualización a la vez
+  enVuelo = true;
+  try{
+    const r = await api("/api/eventos?desde="+desde);
+    r.eventos.forEach(ev=>{ if(ev.id < desde) return; pintar(ev); desde = ev.id+1 });
+    setOcupado(r.ocupado);
+    if(r.descarga && (r.descarga.activa || descargando)) { descargando = r.descarga.activa; pintarDescarga(r.descarga) }
+  }catch(e){}
+  enVuelo = false;
+  clearTimeout(sondeo); sondeo = setTimeout(tick, ocupado || descargando ? 350 : 1500);
+}
+function setOcupado(o){
+  ocupado = o; $("#btnEnviar").style.display = o?"none":""; $("#btnDetener").style.display = o?"":"none";
+  $("#entrada").placeholder = o ? "Arca está trabajando…" : "Pídele algo a Arca…";
+}
+async function enviar(){
+  const t = $("#entrada").value.trim(); if(!t || ocupado) return;
+  if(!estado || !estado.listo){ abrirConfig(); return }
+  $("#entrada").value=""; ajustar(); setOcupado(true);
+  const r = await api("/api/mensaje",{texto:t});
+  if(!r.ok) setOcupado(false);
+  clearTimeout(sondeo); sondeo = setTimeout(tick, 150);
+}
+function ajustar(){ const e=$("#entrada"); e.style.height="auto"; e.style.height=Math.min(e.scrollHeight,180)+"px" }
+
+// ───────── configuración / primer uso ─────────
+async function cargarEstado(){
+  estado = await api("/api/estado");
+  $("#nomModelo").textContent = estado.listo ? estado.modelo : "Elegir modelo";
+  $("#dot").className = "dot" + (estado.listo && !estado.local ? " nube" : "");
+  $("#auto").checked = estado.auto;
+  $("#pieInfo").textContent = estado.listo ? (estado.local ? "🔒 Local: nada sale de tu Mac" : "☁️ Nube: tus mensajes van a " + estado.proveedor) : "";
+  if(!estado.listo) abrirConfig();
+  return estado;
+}
+function gb(x){ return (Math.round(x*10)/10) + " GB" }
+
+function abrirConfig(){
+  const e = estado; if(!e) return;
+  const bienvenida = !e.listo;
+  const cards = e.catalogo.map(m=>`<div class="card ${m.recomendado?"rec":""} ${m.cabe?"":"no-cabe"}">
+      ${m.recomendado?'<span class="tag">Recomendado para tu Mac</span>':""}
+      <div class="t">${esc(m.nombre)}</div><div class="d">${esc(m.desc)}<br><span class="pequeño">${esc(m.id)} · ${gb(m.gb)}</span></div>
+      ${m.instalado ? `<button class="ok" data-usar="${esc(m.id)}">${e.modelo===m.id?"✓ En uso":"Usar"}</button>`
+        : m.cabe ? `<button class="${m.recomendado?"pri":""}" data-bajar="${esc(m.id)}">Descargar (${gb(m.gb)})</button>`
+        : `<button disabled>Necesita ${m.ram_min} GB de RAM</button>`}</div>`).join("");
+  const otros = e.locales.filter(l=>!e.catalogo.some(c=>c.id===l.id));
+  const nube = e.nube.map(n=>`<details ${n.tiene_key&&e.proveedor===n.id?"open":""}><summary>${esc(n.nombre)} ${n.tiene_key?"✓":""}</summary>
+      <p class="pequeño">${esc(n.ayuda)} <a href="${n.url}" target="_blank" rel="noopener">Conseguir mi llave →</a></p>
+      <div class="fila">${n.tiene_key?`<button class="ok" data-nube="${n.id}">Usar ${esc(n.nombre)}</button>`:""}
+      <input type="password" placeholder="Pega aquí tu API key" data-key="${n.id}"><button data-guardar="${n.id}">Guardar y usar</button></div>
+      <div class="pequeño err" data-errkey="${n.id}"></div></details>`).join("");
+  $("#hoja").innerHTML = `${bienvenida?"":'<button class="cerrar" id="cerrar">×</button>'}
+    <h2>${bienvenida?"👋 Bienvenido a Arca":"Modelo de IA"}</h2>
+    <p class="sub">${bienvenida?"Primero hay que darle un cerebro. Elige uno y Arca lo instala solo.":"Cambia el cerebro de Arca cuando quieras."}</p>
+    <div class="pequeño">Tu Mac: <b>${e.ram} GB de RAM</b> · <b>${gb(e.disco)}</b> libres en disco</div>
+    ${e.error_modelo && !bienvenida ? `<p class="err">${esc(e.error_modelo)}</p>`:""}
+    <div id="descarga" style="display:none" class="aviso"><div id="dTexto">…</div><div class="barra"><i id="dBarra"></i></div><div class="pequeño" id="dPct"></div></div>
+    <h3>🔒 En tu Mac · gratis · privado · sin internet</h3>
+    ${!e.ollama.instalado?'<p class="pequeño">Al descargar un modelo, Arca también instala el motor gratuito <b>Ollama</b> (unos 200 MB).</p>':""}
+    <div class="cards">${cards}</div>
+    ${otros.length?`<h3>Otros modelos que ya tienes</h3><div class="fila"><select id="selOtro">${otros.map(o=>`<option>${esc(o.id)}</option>`).join("")}</select><button id="usarOtro">Usar</button></div>`:""}
+    <h3>☁️ En la nube · gratis o de pago · necesita internet</h3>
+    <p class="pequeño">Úsalo si tu Mac es lenta o tiene poco espacio. Tus mensajes se envían a ese servicio.</p>
+    ${nube}`;
+  $("#velo").classList.add("on");
+  const c = $("#cerrar"); if(c) c.onclick = ()=>$("#velo").classList.remove("on");
+  document.querySelectorAll("[data-bajar]").forEach(b=>b.onclick=async()=>{ document.querySelectorAll("[data-bajar],[data-usar]").forEach(x=>x.disabled=true);
+    await api("/api/descargar",{modelo:b.dataset.bajar}); descargando = true; pintarDescarga({activa:true,texto:"Preparando…",pct:0});
+    clearTimeout(sondeo); sondeo = setTimeout(tick, 300) });
+  document.querySelectorAll("[data-usar]").forEach(b=>b.onclick=()=>usar("ollama", b.dataset.usar));
+  document.querySelectorAll("[data-nube]").forEach(b=>b.onclick=()=>usar(b.dataset.nube, ""));
+  document.querySelectorAll("[data-guardar]").forEach(b=>b.onclick=async()=>{
+    const p=b.dataset.guardar, k=document.querySelector(`[data-key="${p}"]`).value.trim();
+    b.disabled=true; b.textContent="Probando…";
+    const r = await api("/api/key",{proveedor:p,key:k});
+    if(r.ok){ await cargarEstado(); $("#velo").classList.remove("on") }
+    else { document.querySelector(`[data-errkey="${p}"]`).textContent = r.error || "No funcionó esa llave."; b.disabled=false; b.textContent="Guardar y usar" } });
+  const uo = $("#usarOtro"); if(uo) uo.onclick = ()=>usar("ollama", $("#selOtro").value);
+  if(e.descarga.activa){ descargando = true; pintarDescarga(e.descarga) }
+}
+async function usar(proveedor, modelo){
+  const r = await api("/api/usar",{proveedor,modelo});
+  if(r.ok){ await cargarEstado(); $("#velo").classList.remove("on") } else alert(r.error);
+}
+let ultimaDescarga = false;
+async function pintarDescarga(d){
+  const box = $("#descarga"); if(!box) return;
+  box.style.display = "";
+  $("#dTexto").textContent = d.error ? "⚠️ " + d.error : d.texto;
+  $("#dBarra").style.width = Math.round((d.pct||0)*100) + "%";
+  $("#dPct").textContent = d.error ? "" : Math.round((d.pct||0)*100) + "% · puedes dejar esta ventana abierta mientras descarga";
+  if(!d.activa && ultimaDescarga){ await cargarEstado(); if(estado.listo){ $("#velo").classList.remove("on"); vacio();
+      $(".vacio h2").insertAdjacentHTML("beforebegin", `<div class="aviso" style="display:inline-block">✅ Listo: Arca ya tiene cerebro (<b>${esc(estado.modelo)}</b>).</div>`) } else abrirConfig() }
+  ultimaDescarga = d.activa;
+}
+
+// ───────── arranque ─────────
+$("#btnEnviar").onclick = enviar;
+$("#btnDetener").onclick = ()=>api("/api/detener",{});
+$("#btnNuevo").onclick = ()=>{ if(!ocupado) api("/api/nuevo",{}) };
+$("#chipModelo").onclick = async()=>{ await cargarEstado(); abrirConfig() };
+$("#auto").onchange = e=>api("/api/auto",{auto:e.target.checked});
+$("#entrada").addEventListener("input", ajustar);
+$("#entrada").addEventListener("keydown", e=>{ if(e.key==="Enter" && !e.shiftKey && !e.isComposing){ e.preventDefault(); enviar() } });
+vacio(); cargarEstado().then(tick);
+</script>
+</body>
+</html>

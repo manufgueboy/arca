@@ -1,25 +1,16 @@
 ---
 name: crear-skill
-description: Crear una skill nueva para Arca a partir de una tarea que el usuario quiera repetir. Usar cuando diga "crea una skill", "enséñate a hacer X", "guarda esto como proceso".
+description: Crear una skill nueva de Arca para una tarea que el usuario quiera repetir.
+activar: crea una skill, nueva skill, enséñate, ensenate, guarda esto como proceso
 ---
-
-# Crear una skill nueva
-
-1. Pregunta (si no está claro): qué tarea resuelve, cuándo debe activarse y qué pasos sigue.
-2. Elige un nombre corto en minúsculas con guiones (ej. `reporte-semanal`).
-3. Escribe el archivo `~/.arca/skills/<nombre>/SKILL.md` con `escribir_archivo`, con este formato exacto:
-
-```
----
-name: <nombre>
-description: <una frase: qué hace y CUÁNDO usarla, con palabras que diría el usuario>
----
-
-# <Título>
-
-1. Paso concreto usando las herramientas de Arca (terminal, applescript, chrome_*, buscar_web, leer_archivo, escribir_archivo…)
-2. …
-```
-
-4. Pasos concretos y verificables. Incluye qué hacer si algo falla.
-5. Confirma al usuario la ruta y que la skill ya está disponible (Arca la carga sola en la siguiente tarea).
+1. Si no está claro, pregunta: qué tarea resuelve y con qué palabras la pediría el usuario.
+2. Nombre corto en minúsculas con guiones, ej. reporte-semanal.
+3. Escribe ~/.arca/skills/<nombre>/SKILL.md con escribir_archivo, exactamente así:
+   ---
+   name: <nombre>
+   description: <qué hace, en una frase>
+   activar: <palabras que diría el usuario, separadas por comas>
+   ---
+   1. Paso concreto usando herramientas de Arca…
+   2. …
+4. Pasos cortos y concretos. Confirma la ruta: ya queda activa para la próxima vez.

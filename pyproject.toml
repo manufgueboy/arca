@@ -17,3 +17,6 @@ arca = "arca.cli:main"
 
 [tool.setuptools]
 packages = ["arca"]
+
+[tool.setuptools.package-data]
+arca = ["web.html"]

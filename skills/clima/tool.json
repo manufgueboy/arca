@@ -1,0 +1,8 @@
+{
+  "nombre": "clima",
+  "descripcion": "Clima actual y pronóstico de 3 días de una ciudad.",
+  "parametros": {"ciudad": "Ciudad, ej. 'Ciudad de México'. Usa 'auto' si no la dijo el usuario"},
+  "ejecutar": "python3 clima.py",
+  "riesgo": false,
+  "timeout": 30
+}

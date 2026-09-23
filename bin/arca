@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Lanzador de Arca: no necesita pip ni instalar nada, solo Python 3.9+.
+SRC="$0"
+while [ -L "$SRC" ]; do
+  DIR="$(cd -P "$(dirname "$SRC")" && pwd)"
+  SRC="$(readlink "$SRC")"
+  [[ "$SRC" != /* ]] && SRC="$DIR/$SRC"
+done
+REPO="$(cd -P "$(dirname "$SRC")/.." && pwd)"
+PY="${ARCA_PYTHON:-python3}"
+PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}" exec "$PY" -m arca "$@"

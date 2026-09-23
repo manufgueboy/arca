@@ -59,7 +59,7 @@ class OpenAICompat:
     def _headers(self) -> dict:
         h = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         if self.nombre == "openrouter":
-            h.update({"HTTP-Referer": "https://github.com/manufgueboy/arca", "X-Title": "Arca"})
+            h.update({"HTTP-Referer": "https://github.com/arca-ai/arca", "X-Title": "Arca"})
         return h
 
     def chat(self, mensajes: list[dict], tools: list[dict] | None = None) -> dict:
@@ -89,6 +89,107 @@ class OpenAICompat:
             tools = "tools" in (m.get("supported_parameters") or ["tools"])
             salida.append({"id": m["id"], "gratis": gratis or m["id"].endswith(":free"), "tools": tools})
         return salida
+
+
+class OllamaNativo:
+    """Ollama por su API nativa (/api/chat): permite fijar el contexto (num_ctx),
+    apagar el modo "pensar" y bajar la temperatura. Clave para modelos chicos:
+    por la vía OpenAI, Ollama usa un contexto corto y el modelo "olvida" la tarea."""
+
+    def __init__(self, nombre: str, base_url: str, api_key: str, modelo: str):
+        self.nombre, self.base_url, self.api_key, self.modelo = nombre, base_url.rstrip("/"), api_key, modelo
+        self.num_ctx = 8192
+        self.temperatura: float | None = None
+        self.pensar: bool | None = False   # False = ejecutar más, pensar menos
+        self._sin_pensar_soportado = True
+
+    @staticmethod
+    def _a_nativo(mensajes: list[dict]) -> list[dict]:
+        out = []
+        for m in mensajes:
+            if m["role"] == "assistant" and m.get("tool_calls"):
+                calls = []
+                for tc in m["tool_calls"]:
+                    args = tc["function"].get("arguments") or {}
+                    if isinstance(args, str):
+                        try:
+                            args = json.loads(args or "{}")
+                        except json.JSONDecodeError:
+                            args = {}
+                    calls.append({"function": {"name": tc["function"]["name"], "arguments": args}})
+                out.append({"role": "assistant", "content": m.get("content") or "", "tool_calls": calls})
+            elif m["role"] == "tool":
+                out.append({"role": "tool", "content": m["content"], "tool_name": m.get("name", "")})
+            else:
+                out.append({"role": m["role"], "content": m.get("content") or ""})
+        return out
+
+    def chat(self, mensajes: list[dict], tools: list[dict] | None = None) -> dict:
+        opciones: dict = {"num_ctx": self.num_ctx}
+        if self.temperatura is not None:
+            opciones["temperature"] = self.temperatura
+        payload: dict = {"model": self.modelo, "messages": self._a_nativo(mensajes),
+                         "stream": False, "options": opciones}
+        if tools:
+            payload["tools"] = tools
+        if self.pensar is not None and self._sin_pensar_soportado:
+            payload["think"] = self.pensar
+        try:
+            try:
+                r = _http(f"{self.base_url}/api/chat", payload, {})
+            except ProveedorError as e:
+                if "connection refused" not in str(e).lower() and "errno 61" not in str(e).lower():
+                    raise
+                # Ollama apagado (p. ej. tras reiniciar la Mac): lo encendemos y reintentamos una vez.
+                from . import equipo
+                if not equipo.iniciar_ollama():
+                    raise ProveedorError("Ollama está apagado y no pude encenderlo. Ábrelo desde Aplicaciones "
+                                         "(app Ollama) y vuelve a intentar.") from e
+                r = _http(f"{self.base_url}/api/chat", payload, {})
+        except ProveedorError as e:
+            txt = str(e).lower()
+            if "think" in txt and "support" in txt and "think" in payload:
+                self._sin_pensar_soportado = False
+                return self.chat(mensajes, tools)
+            if tools and any(p in txt for p in _PISTAS_SIN_TOOLS):
+                raise ToolsNoSoportadas(str(e)) from e
+            if "not found" in txt and "model" in txt:
+                raise ProveedorError(f"El modelo '{self.modelo}' no está descargado. "
+                                     f"Descárgalo desde la app de Arca o con: ollama pull {self.modelo}") from e
+            raise
+        m = r.get("message", {})
+        calls = []
+        for i, tc in enumerate(m.get("tool_calls") or []):
+            fn = tc.get("function", {})
+            calls.append({"id": tc.get("id") or f"call_{i}_{fn.get('name', '')}", "type": "function",
+                          "function": {"name": fn.get("name", ""),
+                                       "arguments": json.dumps(fn.get("arguments") or {})}})
+        return {"role": "assistant", "content": _limpiar(m.get("content") or ""), "tool_calls": calls}
+
+    def listar_modelos(self) -> list[dict]:
+        from . import equipo
+        if not equipo.ollama_corriendo():
+            equipo.iniciar_ollama()
+        r = _http(f"{self.base_url}/api/tags", None, {}, timeout=15)
+        return [{"id": m["name"], "gratis": True, "tools": True, "tam": m.get("size", 0),
+                 "params": (m.get("details") or {}).get("parameter_size", "")} for m in r.get("models", [])]
+
+    def info(self) -> dict:
+        try:
+            return _http(f"{self.base_url}/api/show", {"model": self.modelo}, {}, timeout=15)
+        except ProveedorError:
+            return {}
+
+    def tamano_b(self) -> float | None:
+        """Tamaño del modelo en miles de millones de parámetros (None si no se sabe / es de nube)."""
+        if "cloud" in self.modelo:
+            return None
+        ps = ((self.info().get("details") or {}).get("parameter_size") or "").upper().strip()
+        m = re.match(r"([\d.]+)\s*([BM])", ps)
+        if not m:
+            return None
+        n = float(m.group(1))
+        return n / 1000 if m.group(2) == "M" else n
 
 
 class Anthropic:
@@ -163,6 +264,9 @@ def elegir_modelo_auto(prov) -> str:
         gratis = [m for m in modelos if m["gratis"] and m["tools"]]
         if gratis:
             return gratis[0]["id"]
+    if prov.nombre == "ollama":  # preferir modelos locales sobre los -cloud (piden cuenta)
+        locales = [m for m in modelos if "cloud" not in m["id"]]
+        modelos = locales or modelos
     con_tools = [m for m in modelos if m["tools"]]
     return (con_tools or modelos)[0]["id"]
 
@@ -177,7 +281,7 @@ def crear(cfg: dict, nombre: str | None = None, modelo: str | None = None):
     if not key and datos.get("env"):
         raise ProveedorError(f"Falta la API key de {nombre}. Corre: arca login {nombre}  "
                              f"(o exporta {datos['env']})")
-    clase = Anthropic if datos.get("tipo") == "anthropic" else OpenAICompat
+    clase = {"anthropic": Anthropic, "ollama": OllamaNativo}.get(datos.get("tipo"), OpenAICompat)
     prov = clase(nombre, datos["base_url"], key, "")
     prov.modelo = modelo or (cfg.get("modelo") if nombre == cfg["proveedor"] else "") or datos.get("modelo") or elegir_modelo_auto(prov)
     return prov

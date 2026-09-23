@@ -186,6 +186,7 @@ def descargar_modelo(modelo: str, progreso: Callable[[str, float], None] = lambd
     """Descarga un modelo por la API de Ollama con progreso (0..1). Lanza RuntimeError si falla."""
     req = urllib.request.Request(f"{OLLAMA}/api/pull", data=json.dumps({"model": modelo}).encode(),
                                  headers={"Content-Type": "application/json"}, method="POST")
+    partes: dict[str, list[int]] = {}   # el modelo viene en varias capas: sumamos todas para que la barra no regrese a 0
     with urllib.request.urlopen(req, timeout=3600) as r:
         for linea in r:
             if not linea.strip():
@@ -195,7 +196,10 @@ def descargar_modelo(modelo: str, progreso: Callable[[str, float], None] = lambd
                 raise RuntimeError(ev["error"])
             estado = ev.get("status", "")
             if ev.get("total"):
-                progreso(f"Descargando {modelo}…", ev.get("completed", 0) / ev["total"])
+                partes[ev.get("digest") or estado] = [ev.get("completed", 0), ev["total"]]
+                hecho = sum(c for c, _ in partes.values())
+                total = sum(t for _, t in partes.values())
+                progreso(f"Descargando {modelo}… {hecho / 1024 ** 3:.1f} de {total / 1024 ** 3:.1f} GB", hecho / total)
             elif estado == "success":
                 progreso("Listo", 1.0)
             else:

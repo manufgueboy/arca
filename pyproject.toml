@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arca-agent"
+version = "0.1.0"
+description = "Agente de IA para tu Mac: controla apps, Chrome, archivos y terminal con modelos locales, gratis o por API. Con skills."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []   # cero dependencias: solo librería estándar de Python
+keywords = ["ai", "agent", "ollama", "macos", "llm", "local", "skills", "automation"]
+
+[project.scripts]
+arca = "arca.cli:main"
+
+[tool.setuptools]
+packages = ["arca"]
